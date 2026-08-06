@@ -46,9 +46,24 @@ export function AppShell({
               </>
             ) : null}
           </div>
-          {actions ? (
-            <div className="flex items-center gap-2 shrink-0">{actions}</div>
-          ) : null}
+          <div className="flex items-center gap-2 shrink-0">
+            <nav className="flex items-center gap-1 text-sm font-medium">
+              {[
+                { href: "/", label: "Projects" },
+                { href: "/submittals", label: "Submittals" },
+                { href: "/products", label: "Products" },
+              ].map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-lg px-2.5 py-1.5 text-[var(--muted)] transition hover:bg-slate-100 hover:text-[var(--ink)]"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+            {actions}
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
