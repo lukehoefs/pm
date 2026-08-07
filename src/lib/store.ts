@@ -12,8 +12,8 @@ import type {
   TaskStatus,
 } from "./types";
 import { seedDatabase } from "./seed";
+import { DATA_DIR } from "./data-dir";
 
-const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
 async function ensureDb(): Promise<Database> {

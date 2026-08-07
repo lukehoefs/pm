@@ -4,6 +4,9 @@ import { savePdf } from "@/lib/files";
 
 type Params = { params: Promise<{ id: string }> };
 
+// Vendor downloads can be slow; allow up to a minute on serverless hosts.
+export const maxDuration = 60;
+
 const MAX_BYTES = 30 * 1024 * 1024;
 
 export async function POST(_request: Request, { params }: Params) {

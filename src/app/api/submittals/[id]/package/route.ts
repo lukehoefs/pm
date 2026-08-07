@@ -4,6 +4,9 @@ import { generateSubmittalPdf } from "@/lib/submittal-pdf";
 
 type Params = { params: Promise<{ id: string }> };
 
+// Assembling large cut-sheet packages can exceed the default timeout.
+export const maxDuration = 60;
+
 export async function GET(_request: Request, { params }: Params) {
   const { id } = await params;
   const submittal = await getSubmittal(id);
