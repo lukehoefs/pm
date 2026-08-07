@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     model: text("model"),
     category: text("category") || "Other",
     keywords,
+    datasheetUrl: text("datasheetUrl").trim() || null,
   });
 
   const datasheet = form.get("datasheet");

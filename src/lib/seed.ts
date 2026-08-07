@@ -1,96 +1,23 @@
 import type { Database, Product } from "./types";
+import { VENDOR_CATALOG } from "./vendor-catalog";
 
 function seedProducts(now: string): Product[] {
-  const make = (
-    name: string,
-    manufacturer: string,
-    model: string,
-    category: string,
-    keywords: string[],
-  ): Product => ({
-    id: crypto.randomUUID(),
-    name,
-    manufacturer,
-    model,
-    category,
-    keywords,
-    datasheetFile: null,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  return [
-    make(
-      "Ductile Iron Pipe, Pressure Class 350",
-      "McWane Ductile",
-      "TYTON JOINT",
-      "Pipe",
-      ["ductile", "iron", "pipe", "di", "dip", "tyton", "pc350", "class", "350"],
+  return VENDOR_CATALOG.flatMap((vendor) =>
+    vendor.products.map(
+      (p): Product => ({
+        id: crypto.randomUUID(),
+        name: p.name,
+        manufacturer: p.manufacturer,
+        model: p.model,
+        category: p.category,
+        keywords: p.keywords,
+        datasheetFile: null,
+        datasheetUrl: p.datasheetUrl,
+        createdAt: now,
+        updatedAt: now,
+      }),
     ),
-    make(
-      "C900 PVC Pressure Pipe, DR18",
-      "JM Eagle",
-      "Blue Brute C900",
-      "Pipe",
-      ["c900", "pvc", "pipe", "dr18", "dr", "18", "pressure"],
-    ),
-    make(
-      "Resilient Wedge Gate Valve, Mechanical Joint",
-      "Mueller",
-      "A-2361",
-      "Valves",
-      ["gate", "valve", "resilient", "wedge", "mj", "mechanical", "joint", "rw"],
-    ),
-    make(
-      "Dry Barrel Fire Hydrant",
-      "Mueller",
-      "Super Centurion 250",
-      "Hydrants",
-      ["fire", "hydrant", "dry", "barrel", "centurion"],
-    ),
-    make(
-      "Mechanical Joint Ductile Iron Fittings, C153",
-      "Tyler Union",
-      "C153 Compact",
-      "Fittings",
-      ["mj", "mechanical", "joint", "fitting", "fittings", "bend", "tee", "cross", "c153", "compact", "45", "90", "22", "11"],
-    ),
-    make(
-      "Mechanical Joint Restraint Gland (DI Pipe)",
-      "EBAA Iron",
-      "MEGALUG 1100",
-      "Restraint",
-      ["megalug", "restraint", "gland", "mj", "1100", "retainer"],
-    ),
-    make(
-      "Tapping Sleeve, Stainless Steel",
-      "Romac",
-      "SST",
-      "Tapping",
-      ["tapping", "sleeve", "stainless", "sst", "tap"],
-    ),
-    make(
-      "Bronze Corporation Stop, CC x CTS",
-      "Ford Meter Box",
-      "FB1000",
-      "Service Brass",
-      ["corporation", "corp", "stop", "brass", "bronze", "cc", "cts", "fb1000"],
-    ),
-    make(
-      "Curb Stop, Ball Valve CTS x CTS",
-      "Ford Meter Box",
-      "B44-444",
-      "Service Brass",
-      ["curb", "stop", "ball", "valve", "cts", "b44"],
-    ),
-    make(
-      "Bolted Repair Clamp, Full Circle",
-      "Romac",
-      "SS1",
-      "Couplings & Repair",
-      ["repair", "clamp", "full", "circle", "ss1", "stainless"],
-    ),
-  ];
+  );
 }
 
 export function seedDatabase(): Database {

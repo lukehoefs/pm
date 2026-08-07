@@ -10,6 +10,7 @@ const EMPTY_FORM = {
   model: "",
   category: "Other",
   keywords: "",
+  datasheetUrl: "",
 };
 
 export function ProductLibrary({
@@ -24,7 +25,50 @@ export function ProductLibrary({
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+  const [fetchingIds, setFetchingIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const missing = products.filter((p) => p.datasheetUrl && !p.datasheetFile);
+
+  async function fetchDatasheet(id: string): Promise<boolean> {
+    setFetchingIds((prev) => new Set(prev).add(id));
+    try {
+      const res = await fetch(`/api/products/${id}/fetch-datasheet`, {
+        method: "POST",
+      });
+      if (!res.ok) return false;
+      const updated = (await res.json()) as Product;
+      setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setFetchingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
+
+  async function fetchAllMissing() {
+    const targets = missing.map((p) => p.id);
+    let done = 0;
+    let failed = 0;
+    setBulkStatus(`Fetching 0/${targets.length}…`);
+    for (const id of targets) {
+      const ok = await fetchDatasheet(id);
+      if (ok) done += 1;
+      else failed += 1;
+      setBulkStatus(
+        `Fetching ${done + failed}/${targets.length}…${failed ? ` (${failed} failed)` : ""}`,
+      );
+    }
+    setBulkStatus(
+      `Fetched ${done} cut sheet${done === 1 ? "" : "s"}${failed ? `; ${failed} failed — check the vendor URL` : ""}.`,
+    );
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +81,7 @@ export function ProductLibrary({
       data.set("model", form.model);
       data.set("category", form.category);
       data.set("keywords", form.keywords);
+      data.set("datasheetUrl", form.datasheetUrl);
       const file = fileRef.current?.files?.[0];
       if (file) data.set("datasheet", file);
       const res = await fetch("/api/products", { method: "POST", body: data });
@@ -76,6 +121,7 @@ export function ProductLibrary({
       model: product.model,
       category: product.category,
       keywords: product.keywords.join(", "),
+      datasheetUrl: product.datasheetUrl ?? "",
     });
   }
 
@@ -89,6 +135,7 @@ export function ProductLibrary({
         model: editForm.model,
         category: editForm.category,
         keywords: editForm.keywords.split(",").map((k) => k.trim()),
+        datasheetUrl: editForm.datasheetUrl.trim() || null,
       }),
     });
     if (res.ok) {
@@ -119,7 +166,7 @@ export function ProductLibrary({
     <div className="space-y-8">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h1 className="display text-3xl text-[var(--header)] sm:text-4xl">
             Product Library
           </h1>
           <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
@@ -127,14 +174,30 @@ export function ProductLibrary({
             drive automatic matching against quote line items.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center justify-center rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[var(--accent-hover)]"
-        >
-          {open ? "Cancel" : "Add product"}
-        </button>
+        <div className="flex items-center gap-2">
+          {missing.length > 0 ? (
+            <button
+              type="button"
+              onClick={fetchAllMissing}
+              disabled={fetchingIds.size > 0}
+              className="inline-flex items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 py-2.5 text-sm font-medium shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              Fetch missing cut sheets ({missing.length})
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex items-center justify-center rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[var(--accent-hover)]"
+          >
+            {open ? "Cancel" : "Add product"}
+          </button>
+        </div>
       </section>
+
+      {bulkStatus ? (
+        <p className="text-sm text-[var(--muted)]">{bulkStatus}</p>
+      ) : null}
 
       {open ? (
         <form
@@ -217,6 +280,20 @@ export function ProductLibrary({
                 placeholder="gate, valve, mj, rw, resilient, wedge"
               />
             </label>
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-[var(--muted)]">
+                Vendor data sheet URL (fetch instead of uploading)
+              </span>
+              <input
+                type="url"
+                value={form.datasheetUrl}
+                onChange={(e) =>
+                  setForm({ ...form, datasheetUrl: e.target.value })
+                }
+                className="field"
+                placeholder="https://vendor.com/submittals/product.pdf"
+              />
+            </label>
           </div>
           {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
           <div className="mt-4 flex justify-end gap-2">
@@ -292,6 +369,15 @@ export function ProductLibrary({
                   className="field"
                   placeholder="Keywords, comma-separated"
                 />
+                <input
+                  type="url"
+                  value={editForm.datasheetUrl}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, datasheetUrl: e.target.value })
+                  }
+                  className="field"
+                  placeholder="Vendor data sheet URL"
+                />
               </div>
               <div className="mt-3 flex justify-end gap-2">
                 <button
@@ -336,19 +422,41 @@ export function ProductLibrary({
                 </p>
               ) : null}
               <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] px-4 py-3 text-xs">
-                {product.datasheetFile ? (
-                  <a
-                    href={`/api/products/${product.id}/datasheet`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-[var(--accent)] hover:underline"
-                  >
-                    View data sheet
-                  </a>
-                ) : (
-                  <span className="text-amber-600">No data sheet</span>
-                )}
+                <span className="flex items-center gap-2">
+                  {product.datasheetFile ? (
+                    <a
+                      href={`/api/products/${product.id}/datasheet`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-[var(--accent)] hover:underline"
+                    >
+                      View data sheet
+                    </a>
+                  ) : (
+                    <span className="text-amber-600">No data sheet</span>
+                  )}
+                  {product.datasheetUrl ? (
+                    <a
+                      href={product.datasheetUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--muted)] hover:underline"
+                    >
+                      Vendor source
+                    </a>
+                  ) : null}
+                </span>
                 <div className="flex items-center gap-2">
+                  {product.datasheetUrl && !product.datasheetFile ? (
+                    <button
+                      type="button"
+                      disabled={fetchingIds.has(product.id)}
+                      onClick={() => fetchDatasheet(product.id)}
+                      className="rounded-md bg-[var(--accent)] px-2 py-1 font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-60"
+                    >
+                      {fetchingIds.has(product.id) ? "Fetching…" : "Fetch cut sheet"}
+                    </button>
+                  ) : null}
                   <label className="cursor-pointer rounded-md px-2 py-1 font-medium text-[var(--muted)] hover:bg-slate-100">
                     {product.datasheetFile ? "Replace PDF" : "Upload PDF"}
                     <input

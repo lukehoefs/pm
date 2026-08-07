@@ -38,6 +38,8 @@ export interface Product {
   category: string;
   keywords: string[];
   datasheetFile: string | null;
+  /** Vendor submittal/spec sheet URL the cut sheet can be fetched from. */
+  datasheetUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -139,5 +141,7 @@ export const PRODUCT_CATEGORIES = [
   "Restraint",
   "Couplings & Repair",
   "Tapping",
+  "Drainage",
+  "Pumps",
   "Other",
 ] as const;

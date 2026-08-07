@@ -8,6 +8,7 @@ import {
 import { savePdf } from "@/lib/files";
 import { parseQuotePdf } from "@/lib/quote-parser";
 import { bestMatch } from "@/lib/match";
+import { BRAND } from "@/lib/brand";
 import type { SubmittalItem } from "@/lib/types";
 
 export async function GET() {
@@ -59,7 +60,11 @@ export async function POST(request: Request) {
     };
   });
 
-  const created = await createSubmittal({ name, items });
+  const created = await createSubmittal({
+    name,
+    items,
+    preparedBy: BRAND.name,
+  });
   const quoteFile = await savePdf("quotes", created.id, Buffer.from(bytes));
   const submittal = await updateSubmittal(created.id, {
     quoteFile,

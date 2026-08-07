@@ -209,6 +209,7 @@ export async function createProduct(input: {
   category?: string;
   keywords?: string[];
   datasheetFile?: string | null;
+  datasheetUrl?: string | null;
 }): Promise<Product> {
   const db = await ensureDb();
   const ts = now();
@@ -220,6 +221,7 @@ export async function createProduct(input: {
     category: (input.category ?? "Other").trim(),
     keywords: (input.keywords ?? []).map((k) => k.trim()).filter(Boolean),
     datasheetFile: input.datasheetFile ?? null,
+    datasheetUrl: input.datasheetUrl ?? null,
     createdAt: ts,
     updatedAt: ts,
   };
@@ -233,7 +235,13 @@ export async function updateProduct(
   patch: Partial<
     Pick<
       Product,
-      "name" | "manufacturer" | "model" | "category" | "keywords" | "datasheetFile"
+      | "name"
+      | "manufacturer"
+      | "model"
+      | "category"
+      | "keywords"
+      | "datasheetFile"
+      | "datasheetUrl"
     >
   >,
 ): Promise<Product | null> {

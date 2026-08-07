@@ -1,21 +1,26 @@
+import { promises as fs } from "fs";
+import path from "path";
 import {
   PDFDocument,
   PDFFont,
+  PDFImage,
   PDFPage,
   StandardFonts,
   rgb,
 } from "pdf-lib";
 import type { Product, Submittal, SubmittalItem } from "./types";
 import { readPdf } from "./files";
+import { BRAND } from "./brand";
 
 const PAGE_W = 612;
 const PAGE_H = 792;
 const MARGIN = 54;
 
-const INK = rgb(0.06, 0.09, 0.16);
-const MUTED = rgb(0.39, 0.45, 0.55);
-const ACCENT = rgb(0.06, 0.3, 0.36);
-const LINE = rgb(0.85, 0.89, 0.93);
+const INK = rgb(0.11, 0.14, 0.16);
+const MUTED = rgb(0.37, 0.42, 0.45);
+const ACCENT = rgb(0.816, 0.173, 0.184); // Pasco red #D02C2F
+const SLATE = rgb(0.141, 0.22, 0.251); // Pasco dark slate #243840
+const LINE = rgb(0.898, 0.886, 0.863);
 
 interface Fonts {
   regular: PDFFont;
@@ -99,6 +104,7 @@ function addCoverPage(
   fonts: Fonts,
   submittal: Submittal,
   itemCount: number,
+  logo: PDFImage | null,
 ): void {
   const page = doc.addPage([PAGE_W, PAGE_H]);
 
@@ -110,7 +116,34 @@ function addCoverPage(
     color: ACCENT,
   });
 
-  let y = PAGE_H - 130;
+  const headerY = PAGE_H - 118;
+  if (logo) {
+    const size = 84;
+    page.drawImage(logo, { x: MARGIN, y: headerY, width: size, height: size });
+  }
+  const brandX = logo ? MARGIN + 100 : MARGIN;
+  page.drawText(BRAND.name.toUpperCase(), {
+    x: brandX,
+    y: headerY + 62,
+    size: 17,
+    font: fonts.bold,
+    color: SLATE,
+  });
+  for (const [i, line] of [
+    `Waterworks distribution since ${BRAND.established}`,
+    `${BRAND.phone}  |  ${BRAND.email}`,
+    BRAND.website,
+  ].entries()) {
+    page.drawText(sanitize(line), {
+      x: brandX,
+      y: headerY + 42 - i * 14,
+      size: 9.5,
+      font: fonts.regular,
+      color: MUTED,
+    });
+  }
+
+  let y = headerY - 62;
   page.drawText("SUBMITTAL PACKAGE", {
     x: MARGIN,
     y,
@@ -157,7 +190,15 @@ function addCoverPage(
   leftY = drawLabelValue(page, fonts, "Project", submittal.projectName, leftX, leftY, colW);
   leftY = drawLabelValue(page, fonts, "Contractor", submittal.contractor, leftX, leftY, colW);
   leftY = drawLabelValue(page, fonts, "Engineer of Record", submittal.engineer, leftX, leftY, colW);
-  rightY = drawLabelValue(page, fonts, "Prepared By", submittal.preparedBy, rightX, rightY, colW);
+  rightY = drawLabelValue(
+    page,
+    fonts,
+    "Prepared By",
+    submittal.preparedBy || BRAND.name,
+    rightX,
+    rightY,
+    colW,
+  );
   rightY = drawLabelValue(page, fonts, "Date", displayDate(submittal.updatedAt), rightX, rightY, colW);
   rightY = drawLabelValue(page, fonts, "Sections", String(itemCount), rightX, rightY, colW);
 
@@ -177,12 +218,19 @@ function addCoverPage(
     "Product data herein is submitted for review and approval prior to release of material.",
     {
       x: MARGIN,
-      y: 72,
+      y: 84,
       size: 9,
       font: fonts.regular,
       color: MUTED,
     },
   );
+  page.drawText(sanitize(BRAND.tagline), {
+    x: MARGIN,
+    y: 70,
+    size: 9,
+    font: fonts.regular,
+    color: MUTED,
+  });
 }
 
 function addTransmittalPages(
@@ -368,7 +416,17 @@ export async function generateSubmittalPdf(
   };
   doc.setTitle(sanitize(submittal.name || "Submittal Package"));
 
-  addCoverPage(doc, fonts, submittal, items.length);
+  let logo: PDFImage | null = null;
+  try {
+    const logoBytes = await fs.readFile(
+      path.join(process.cwd(), "public", "pps-logo.png"),
+    );
+    logo = await doc.embedPng(new Uint8Array(logoBytes));
+  } catch {
+    warnings.push("Brand logo not found; cover generated without it.");
+  }
+
+  addCoverPage(doc, fonts, submittal, items.length, logo);
   addTransmittalPages(doc, fonts, submittal, items, productById);
 
   for (const [index, item] of items.entries()) {
@@ -405,7 +463,11 @@ export async function generateSubmittalPdf(
   // Footer stamp on every page, done last so the count is final.
   const pages = doc.getPages();
   const label = sanitize(
-    [submittal.number && `Submittal No. ${submittal.number}`, submittal.name]
+    [
+      BRAND.name,
+      submittal.number && `Submittal No. ${submittal.number}`,
+      submittal.name,
+    ]
       .filter(Boolean)
       .join(" - "),
   );
