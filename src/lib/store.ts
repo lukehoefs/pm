@@ -2,21 +2,28 @@ import { promises as fs } from "fs";
 import path from "path";
 import type {
   Database,
+  Product,
   Project,
   ProjectStatus,
+  Submittal,
+  SubmittalItem,
   Task,
   TaskPriority,
   TaskStatus,
 } from "./types";
 import { seedDatabase } from "./seed";
+import { DATA_DIR } from "./data-dir";
 
-const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
 async function ensureDb(): Promise<Database> {
   try {
     const raw = await fs.readFile(DB_PATH, "utf-8");
-    return JSON.parse(raw) as Database;
+    const db = JSON.parse(raw) as Database;
+    // Databases written before the submittal feature lack these collections.
+    db.products ??= seedDatabase().products;
+    db.submittals ??= [];
+    return db;
   } catch {
     const seed = seedDatabase();
     await fs.mkdir(DATA_DIR, { recursive: true });
@@ -181,6 +188,167 @@ export async function deleteTask(id: string): Promise<boolean> {
   const before = db.tasks.length;
   db.tasks = db.tasks.filter((t) => t.id !== id);
   if (db.tasks.length === before) return false;
+  await writeDb(db);
+  return true;
+}
+
+export async function listProducts(): Promise<Product[]> {
+  const db = await ensureDb();
+  return [...db.products].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function getProduct(id: string): Promise<Product | null> {
+  const db = await ensureDb();
+  return db.products.find((p) => p.id === id) ?? null;
+}
+
+export async function createProduct(input: {
+  name: string;
+  manufacturer?: string;
+  model?: string;
+  category?: string;
+  keywords?: string[];
+  datasheetFile?: string | null;
+  datasheetUrl?: string | null;
+}): Promise<Product> {
+  const db = await ensureDb();
+  const ts = now();
+  const product: Product = {
+    id: crypto.randomUUID(),
+    name: input.name.trim(),
+    manufacturer: (input.manufacturer ?? "").trim(),
+    model: (input.model ?? "").trim(),
+    category: (input.category ?? "Other").trim(),
+    keywords: (input.keywords ?? []).map((k) => k.trim()).filter(Boolean),
+    datasheetFile: input.datasheetFile ?? null,
+    datasheetUrl: input.datasheetUrl ?? null,
+    createdAt: ts,
+    updatedAt: ts,
+  };
+  db.products.push(product);
+  await writeDb(db);
+  return product;
+}
+
+export async function updateProduct(
+  id: string,
+  patch: Partial<
+    Pick<
+      Product,
+      | "name"
+      | "manufacturer"
+      | "model"
+      | "category"
+      | "keywords"
+      | "datasheetFile"
+      | "datasheetUrl"
+    >
+  >,
+): Promise<Product | null> {
+  const db = await ensureDb();
+  const idx = db.products.findIndex((p) => p.id === id);
+  if (idx === -1) return null;
+  db.products[idx] = { ...db.products[idx], ...patch, updatedAt: now() };
+  await writeDb(db);
+  return db.products[idx];
+}
+
+export async function deleteProduct(id: string): Promise<boolean> {
+  const db = await ensureDb();
+  const before = db.products.length;
+  db.products = db.products.filter((p) => p.id !== id);
+  if (db.products.length === before) return false;
+  for (const submittal of db.submittals) {
+    for (const item of submittal.items) {
+      if (item.productId === id) item.productId = null;
+    }
+  }
+  await writeDb(db);
+  return true;
+}
+
+export async function listSubmittals(): Promise<Submittal[]> {
+  const db = await ensureDb();
+  return [...db.submittals].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+}
+
+export async function getSubmittal(id: string): Promise<Submittal | null> {
+  const db = await ensureDb();
+  return db.submittals.find((s) => s.id === id) ?? null;
+}
+
+export async function createSubmittal(input: {
+  name: string;
+  number?: string;
+  projectId?: string | null;
+  projectName?: string;
+  contractor?: string;
+  engineer?: string;
+  preparedBy?: string;
+  notes?: string;
+  quoteFile?: string | null;
+  quoteFilename?: string;
+  items?: SubmittalItem[];
+}): Promise<Submittal> {
+  const db = await ensureDb();
+  const ts = now();
+  const submittal: Submittal = {
+    id: crypto.randomUUID(),
+    name: input.name.trim(),
+    number: (input.number ?? "").trim(),
+    projectId: input.projectId ?? null,
+    projectName: (input.projectName ?? "").trim(),
+    contractor: (input.contractor ?? "").trim(),
+    engineer: (input.engineer ?? "").trim(),
+    preparedBy: (input.preparedBy ?? "").trim(),
+    notes: (input.notes ?? "").trim(),
+    status: "draft",
+    quoteFile: input.quoteFile ?? null,
+    quoteFilename: (input.quoteFilename ?? "").trim(),
+    items: input.items ?? [],
+    createdAt: ts,
+    updatedAt: ts,
+  };
+  db.submittals.push(submittal);
+  await writeDb(db);
+  return submittal;
+}
+
+export async function updateSubmittal(
+  id: string,
+  patch: Partial<
+    Pick<
+      Submittal,
+      | "name"
+      | "number"
+      | "projectId"
+      | "projectName"
+      | "contractor"
+      | "engineer"
+      | "preparedBy"
+      | "notes"
+      | "status"
+      | "quoteFile"
+      | "quoteFilename"
+      | "items"
+    >
+  >,
+): Promise<Submittal | null> {
+  const db = await ensureDb();
+  const idx = db.submittals.findIndex((s) => s.id === id);
+  if (idx === -1) return null;
+  db.submittals[idx] = { ...db.submittals[idx], ...patch, updatedAt: now() };
+  await writeDb(db);
+  return db.submittals[idx];
+}
+
+export async function deleteSubmittal(id: string): Promise<boolean> {
+  const db = await ensureDb();
+  const before = db.submittals.length;
+  db.submittals = db.submittals.filter((s) => s.id !== id);
+  if (db.submittals.length === before) return false;
   await writeDb(db);
   return true;
 }

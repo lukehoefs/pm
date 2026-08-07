@@ -28,9 +28,56 @@ export interface Task {
   updatedAt: string;
 }
 
+export type SubmittalStatus = "draft" | "submitted" | "approved" | "revise";
+
+export interface Product {
+  id: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+  category: string;
+  keywords: string[];
+  datasheetFile: string | null;
+  /** Vendor submittal/spec sheet URL the cut sheet can be fetched from. */
+  datasheetUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmittalItem {
+  id: string;
+  lineNo: number;
+  qty: string;
+  unit: string;
+  description: string;
+  productId: string | null;
+  include: boolean;
+  rawLine: string;
+}
+
+export interface Submittal {
+  id: string;
+  name: string;
+  number: string;
+  projectId: string | null;
+  projectName: string;
+  contractor: string;
+  engineer: string;
+  preparedBy: string;
+  notes: string;
+  status: SubmittalStatus;
+  quoteFile: string | null;
+  quoteFilename: string;
+  items: SubmittalItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Database {
   projects: Project[];
   tasks: Task[];
+  products: Product[];
+  submittals: Submittal[];
 }
 
 export const PROJECT_STATUSES: ProjectStatus[] = [
@@ -69,3 +116,32 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   high: "High",
   urgent: "Urgent",
 };
+
+export const SUBMITTAL_STATUSES: SubmittalStatus[] = [
+  "draft",
+  "submitted",
+  "approved",
+  "revise",
+];
+
+export const SUBMITTAL_STATUS_LABELS: Record<SubmittalStatus, string> = {
+  draft: "Draft",
+  submitted: "Submitted",
+  approved: "Approved",
+  revise: "Revise & Resubmit",
+};
+
+export const PRODUCT_CATEGORIES = [
+  "Pipe",
+  "Fittings",
+  "Valves",
+  "Hydrants",
+  "Service Brass",
+  "Meters",
+  "Restraint",
+  "Couplings & Repair",
+  "Tapping",
+  "Drainage",
+  "Pumps",
+  "Other",
+] as const;

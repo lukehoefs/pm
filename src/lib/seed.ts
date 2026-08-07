@@ -1,4 +1,24 @@
-import type { Database } from "./types";
+import type { Database, Product } from "./types";
+import { VENDOR_CATALOG } from "./vendor-catalog";
+
+function seedProducts(now: string): Product[] {
+  return VENDOR_CATALOG.flatMap((vendor) =>
+    vendor.products.map(
+      (p): Product => ({
+        id: crypto.randomUUID(),
+        name: p.name,
+        manufacturer: p.manufacturer,
+        model: p.model,
+        category: p.category,
+        keywords: p.keywords,
+        datasheetFile: null,
+        datasheetUrl: p.datasheetUrl,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    ),
+  );
+}
 
 export function seedDatabase(): Database {
   const now = new Date().toISOString();
@@ -164,5 +184,7 @@ export function seedDatabase(): Database {
         updatedAt: now,
       },
     ],
+    products: seedProducts(now),
+    submittals: [],
   };
 }
